@@ -5,6 +5,7 @@ import { Avatar } from 'primereact/avatar';
 import { Menu } from 'primereact/menu';
 import type { MenuItem } from 'primereact/menuitem';
 import { useAuth } from '../../core/auth/auth-context';
+import { useUserManagementEnabled } from '../../core/capabilities/use-capabilities';
 import { useEnvBar } from '../../core/preferences/env-bar-context';
 import { NAV_SIZE_SCALE, useNavPrefs } from '../../core/preferences/nav-prefs-context';
 import { environment } from '../../config/environment';
@@ -72,6 +73,8 @@ export function ConsoleShell({
 }: ConsoleShellProps) {
   const auth = useAuth();
   const navigate = useNavigate();
+  // Identity entry only when the platform manages users/groups (kubauth).
+  const userManagement = useUserManagementEnabled();
   const { envBarEnabled } = useEnvBar();
   const { menuSize } = useNavPrefs();
   const menuRef = useRef<Menu>(null);
@@ -89,7 +92,7 @@ export function ConsoleShell({
     },
     // Views is reached from the sidebar world-switcher; /views (redirect)
     // still serves old links.
-    ...(auth.hasRole('admins')
+    ...(auth.hasRole('admins') && userManagement
       ? [
           {
             label: 'Administration',
@@ -101,6 +104,10 @@ export function ConsoleShell({
             icon: 'pi pi-users',
             command: () => navigate('/identity'),
           },
+        ]
+      : []),
+    ...(auth.hasRole('admins')
+      ? [
           {
             label: 'Service Catalog',
             icon: 'pi pi-box',
