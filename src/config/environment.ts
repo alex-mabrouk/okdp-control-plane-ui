@@ -26,8 +26,10 @@ const development: Environment = {
   apiBaseUrl: 'http://localhost:8093',
 
   oidc: {
-    authority: 'https://kubauth.okdp.dev-sandbox',
-    clientId: 'okdp-app',
+    // Keycloak is the sandbox IdP (kubauth retired); the okdp-ui client is
+    // seeded by the sandbox Keycloak configuration.
+    authority: 'https://keycloak.okdp.sandbox/realms/master',
+    clientId: 'okdp-ui',
     redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
     scope: 'openid profile email groups offline_access',
