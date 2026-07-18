@@ -10,10 +10,12 @@ const legacyCapabilities: Capabilities = {
 
 // Fetched once per tab and shared by every consumer: capabilities only change
 // when an operator edits the platform Context, a reload is fine to pick it up.
+// The app bootstrap (main.tsx) triggers the fetch before rendering so the
+// OIDC client can be configured from it; the hooks below reuse that result.
 let cached: Capabilities | undefined;
 let inflight: Promise<Capabilities> | undefined;
 
-function fetchCapabilities(): Promise<Capabilities> {
+export function fetchCapabilities(): Promise<Capabilities> {
   inflight ??= capabilitiesApi
     .get()
     .catch(() => legacyCapabilities)

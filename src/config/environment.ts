@@ -57,3 +57,14 @@ const production: Environment = {
 };
 
 export const environment: Environment = import.meta.env.PROD ? production : development;
+
+/** Overrides the build-time OIDC client with the one the platform publishes
+ *  (GET /api/capabilities, Context identity.oidc), so a single UI build works
+ *  against any IdP. Called by the bootstrap in main.tsx before the OIDC
+ *  client is created; no-op when the platform publishes nothing. */
+export function applyRuntimeOidc(oidc?: { authority: string; clientId: string; scope?: string }) {
+  if (!oidc?.authority || !oidc.clientId) return;
+  environment.oidc.authority = oidc.authority;
+  environment.oidc.clientId = oidc.clientId;
+  if (oidc.scope) environment.oidc.scope = oidc.scope;
+}
