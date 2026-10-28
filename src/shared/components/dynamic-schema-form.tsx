@@ -368,45 +368,62 @@ function ObjectListField({
     onChange(value.map((row, i) => (i === index ? { ...row, [column]: columnValue } : row)));
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {value.map((row, index) => (
-        <div key={index} className="flex items-end gap-2">
-          {columns.map((column) => {
-            const contract = props[column]?.['x-kubocd-connection-ref']?.contract;
-            return (
-              <div key={column} className="flex-1">
-                <label className="text-[12px] text-fg-secondary">{formatLabel(column)}</label>
-                {contract ? (
-                  <Dropdown
-                    value={row[column] ?? null}
-                    options={(connections[contract] || []).map((c) => ({
-                      label: c.name,
-                      value: c.name,
-                    }))}
-                    optionLabel="label"
-                    optionValue="value"
-                    placeholder={`Select a ${contract} connection`}
-                    appendTo={document.body}
-                    className="w-full"
-                    onChange={(e) => patch(index, column, e.value)}
-                  />
-                ) : (
-                  <ObjectListCell
-                    def={props[column]}
-                    value={row[column]}
-                    onChange={(next) => patch(index, column, next)}
-                  />
-                )}
-              </div>
-            );
-          })}
-          <Button
-            type="button"
-            icon="pi pi-times"
-            text
-            aria-label="Remove row"
-            onClick={() => onChange(value.filter((_, i) => i !== index))}
-          />
+        <div
+          key={index}
+          className="flex items-start gap-2 not-last:border-b not-last:border-b-border-light not-last:pb-3"
+        >
+          {/* The fields wrap rather than widen the form when they do not fit on one line. */}
+          <div
+            className="grid min-w-0 flex-1 gap-2"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}
+          >
+            {columns.map((column) => {
+              const contract = props[column]?.['x-kubocd-connection-ref']?.contract;
+              const label = props[column]?.title ?? formatLabel(column);
+              return (
+                <div key={column} className="min-w-0">
+                  <label className="block truncate text-[12px] text-fg-secondary" title={label}>
+                    {label}
+                  </label>
+                  {contract ? (
+                    <Dropdown
+                      value={row[column] ?? null}
+                      options={(connections[contract] || []).map((c) => ({
+                        label: c.name,
+                        value: c.name,
+                      }))}
+                      optionLabel="label"
+                      optionValue="value"
+                      placeholder={`Select a ${contract} connection`}
+                      appendTo={document.body}
+                      className="w-full"
+                      onChange={(e) => patch(index, column, e.value)}
+                    />
+                  ) : (
+                    <ObjectListCell
+                      def={props[column]}
+                      value={row[column]}
+                      onChange={(next) => patch(index, column, next)}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div>
+            <label className="block text-[12px]" aria-hidden="true">
+              &nbsp;
+            </label>
+            <Button
+              type="button"
+              icon="pi pi-times"
+              text
+              aria-label="Remove row"
+              onClick={() => onChange(value.filter((_, i) => i !== index))}
+            />
+          </div>
         </div>
       ))}
       <div>
@@ -912,7 +929,11 @@ export function DynamicSchemaForm({
   const renderFieldGrid = (group: FieldGroup, groupFields: SchemaField[]) => (
     <div
       className="grid gap-x-5 gap-y-5"
-      style={{ gridTemplateColumns: group.columns === 2 ? '1fr 1fr' : '1fr' }}
+      // minmax(0, …): a wide field must not stretch its column past the form.
+      style={{
+        gridTemplateColumns:
+          group.columns === 2 ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)',
+      }}
     >
       {groupFields.map(
         (field) =>

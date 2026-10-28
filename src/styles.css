@@ -1714,6 +1714,96 @@ h1 {
     background-color: rgba(220, 38, 38, 0.04);
   }
 
+  /* Brand colour on the controls the lara-light-blue theme paints blue.
+     Severity variants and SelectButton segments keep their own skin. */
+  .p-button:where(
+    :not(
+      .p-button-secondary,
+      .p-button-success,
+      .p-button-info,
+      .p-button-warning,
+      .p-button-help,
+      .p-button-danger,
+      .p-button-contrast,
+      .p-selectbutton *
+    )
+  ) {
+    background: var(--db-primary);
+    border-color: var(--db-primary);
+  }
+  .p-button:where(
+      :not(
+        .p-button-secondary,
+        .p-button-success,
+        .p-button-info,
+        .p-button-warning,
+        .p-button-help,
+        .p-button-danger,
+        .p-button-contrast,
+        .p-selectbutton *
+      )
+    ):enabled:hover {
+    background: var(--db-primary-hover);
+    border-color: var(--db-primary-hover);
+  }
+  .p-button.p-button-text:where(
+      :not(.p-button-secondary, .p-button-danger, .p-button-success, .p-button-warning)
+    ),
+  .p-button.p-button-outlined:where(
+      :not(.p-button-secondary, .p-button-danger, .p-button-success, .p-button-warning)
+    ) {
+    background: transparent;
+    border-color: transparent;
+    color: var(--db-primary);
+  }
+  .p-button.p-button-outlined:where(
+      :not(.p-button-secondary, .p-button-danger, .p-button-success, .p-button-warning)
+    ) {
+    border-color: var(--db-primary);
+  }
+  .p-button.p-button-text:where(
+      :not(.p-button-secondary, .p-button-danger, .p-button-success, .p-button-warning)
+    ):enabled:hover,
+  .p-button.p-button-outlined:where(
+      :not(.p-button-secondary, .p-button-danger, .p-button-success, .p-button-warning)
+    ):enabled:hover {
+    background: var(--db-primary-50);
+    color: var(--db-primary);
+  }
+  .p-button:focus,
+  .p-inputtext:enabled:focus,
+  .p-dropdown:not(.p-disabled).p-focus,
+  .p-multiselect:not(.p-disabled).p-focus,
+  .p-chips .p-chips-multiple-container:not(.p-disabled).p-focus,
+  .p-inputswitch.p-focus .p-inputswitch-slider,
+  .p-checkbox .p-checkbox-box.p-focus {
+    box-shadow: 0 0 0 0.2rem var(--db-primary-200);
+  }
+  .p-inputtext:enabled:hover,
+  .p-inputtext:enabled:focus,
+  .p-dropdown:not(.p-disabled):hover,
+  .p-dropdown:not(.p-disabled).p-focus,
+  .p-multiselect:not(.p-disabled):hover,
+  .p-multiselect:not(.p-disabled).p-focus,
+  .p-chips .p-chips-multiple-container:not(.p-disabled):hover,
+  .p-chips .p-chips-multiple-container:not(.p-disabled).p-focus {
+    border-color: var(--db-primary);
+  }
+  .p-inputswitch.p-highlight .p-inputswitch-slider,
+  .p-inputswitch.p-highlight:not(.p-disabled):hover .p-inputswitch-slider {
+    background: var(--db-primary);
+  }
+  .p-checkbox .p-checkbox-box.p-highlight,
+  .p-checkbox:not(.p-disabled):has(.p-checkbox-input:hover) .p-checkbox-box.p-highlight,
+  .p-radiobutton .p-radiobutton-box.p-highlight {
+    background: var(--db-primary);
+    border-color: var(--db-primary);
+  }
+  .p-checkbox:not(.p-disabled):has(.p-checkbox-input:hover) .p-checkbox-box,
+  .p-radiobutton .p-radiobutton-box:not(.p-disabled):hover {
+    border-color: var(--db-primary);
+  }
+
   /* Project console header — borderless project-switcher Dropdown */
   .project-switcher .p-dropdown {
     border: none;
