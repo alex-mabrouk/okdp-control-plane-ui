@@ -1770,13 +1770,15 @@ h1 {
     background: var(--db-primary-50);
     color: var(--db-primary);
   }
+  /* Selectors mirror the lara theme's, which reads hover and focus off the hidden native input. */
   .p-button:focus,
   .p-inputtext:enabled:focus,
   .p-dropdown:not(.p-disabled).p-focus,
   .p-multiselect:not(.p-disabled).p-focus,
-  .p-chips .p-chips-multiple-container:not(.p-disabled).p-focus,
-  .p-inputswitch.p-focus .p-inputswitch-slider,
-  .p-checkbox .p-checkbox-box.p-focus {
+  .p-chips:not(.p-disabled).p-focus .p-chips-multiple-container,
+  .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:focus-visible) .p-inputswitch-slider,
+  .p-checkbox:not(.p-disabled):has(.p-checkbox-input:focus-visible) .p-checkbox-box,
+  .p-radiobutton:not(.p-disabled):has(.p-radiobutton-input:focus-visible) .p-radiobutton-box {
     box-shadow: 0 0 0 0.2rem var(--db-primary-200);
   }
   .p-inputtext:enabled:hover,
@@ -1785,23 +1787,30 @@ h1 {
   .p-dropdown:not(.p-disabled).p-focus,
   .p-multiselect:not(.p-disabled):hover,
   .p-multiselect:not(.p-disabled).p-focus,
-  .p-chips .p-chips-multiple-container:not(.p-disabled):hover,
-  .p-chips .p-chips-multiple-container:not(.p-disabled).p-focus {
-    border-color: var(--db-primary);
-  }
-  .p-inputswitch.p-highlight .p-inputswitch-slider,
-  .p-inputswitch.p-highlight:not(.p-disabled):hover .p-inputswitch-slider {
-    background: var(--db-primary);
-  }
-  .p-checkbox .p-checkbox-box.p-highlight,
-  .p-checkbox:not(.p-disabled):has(.p-checkbox-input:hover) .p-checkbox-box.p-highlight,
-  .p-radiobutton .p-radiobutton-box.p-highlight {
-    background: var(--db-primary);
-    border-color: var(--db-primary);
-  }
+  .p-chips:not(.p-disabled):hover .p-chips-multiple-container,
+  .p-chips:not(.p-disabled).p-focus .p-chips-multiple-container,
   .p-checkbox:not(.p-disabled):has(.p-checkbox-input:hover) .p-checkbox-box,
-  .p-radiobutton .p-radiobutton-box:not(.p-disabled):hover {
+  .p-checkbox:not(.p-disabled):has(.p-checkbox-input:focus-visible) .p-checkbox-box,
+  .p-radiobutton:not(.p-disabled):has(.p-radiobutton-input:hover) .p-radiobutton-box,
+  .p-radiobutton:not(.p-disabled):has(.p-radiobutton-input:focus-visible) .p-radiobutton-box {
     border-color: var(--db-primary);
+  }
+  .p-inputswitch.p-highlight .p-inputswitch-slider {
+    background: var(--db-primary);
+  }
+  .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover).p-highlight
+    .p-inputswitch-slider {
+    background: var(--db-primary-hover);
+  }
+  .p-checkbox.p-highlight .p-checkbox-box,
+  .p-radiobutton.p-highlight .p-radiobutton-box {
+    background: var(--db-primary);
+    border-color: var(--db-primary);
+  }
+  .p-checkbox:not(.p-disabled):has(.p-checkbox-input:hover).p-highlight .p-checkbox-box,
+  .p-radiobutton:not(.p-disabled):has(.p-radiobutton-input:hover).p-highlight .p-radiobutton-box {
+    background: var(--db-primary-hover);
+    border-color: var(--db-primary-hover);
   }
 
   /* Project console header — borderless project-switcher Dropdown */
@@ -2169,7 +2178,7 @@ h1 {
     border-color: var(--db-border-color);
   }
 
-  body.dark-mode .p-checkbox .p-checkbox-box.p-highlight {
+  body.dark-mode .p-checkbox.p-highlight .p-checkbox-box {
     background: var(--db-primary);
     border-color: var(--db-primary);
   }

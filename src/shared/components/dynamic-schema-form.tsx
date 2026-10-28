@@ -372,7 +372,7 @@ function ObjectListField({
       {value.map((row, index) => (
         <div
           key={index}
-          className="flex items-start gap-2 not-last:border-b not-last:border-b-border-light not-last:pb-3"
+          className="flex items-start gap-2 not-first:border-t not-first:border-t-border-light not-first:pt-3"
         >
           {/* The fields wrap rather than widen the form when they do not fit on one line. */}
           <div
