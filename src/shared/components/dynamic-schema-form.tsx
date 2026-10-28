@@ -4,6 +4,8 @@ import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { Dropdown } from 'primereact/dropdown';
+import { MultiSelect } from 'primereact/multiselect';
+import { Chips } from 'primereact/chips';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Password } from 'primereact/password';
 import { Button } from 'primereact/button';
@@ -233,6 +235,88 @@ function KeyValueField({
   );
 }
 
+/** One cell of an object list, with a control chosen from the property's type.
+ *  A text box sends a list or a number as a string, which the package schema
+ *  then rejects ("got string, want array"). An emptied list or number is
+ *  dropped rather than sent empty. */
+function ObjectListCell({
+  def,
+  value,
+  onChange,
+}: {
+  def: any;
+  value: any;
+  onChange: (next: any) => void;
+}) {
+  if (def?.type === 'array' && Array.isArray(def.items?.enum) && def.items.enum.length > 0) {
+    return (
+      <MultiSelect
+        value={Array.isArray(value) ? value : []}
+        options={toOptions(def.items.enum)}
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Select..."
+        display="chip"
+        appendTo={document.body}
+        className="w-full"
+        onChange={(e) => onChange(e.value?.length ? e.value : undefined)}
+      />
+    );
+  }
+  if (def?.type === 'array') {
+    return (
+      <Chips
+        value={Array.isArray(value) ? value : []}
+        separator=","
+        allowDuplicate={false}
+        addOnBlur
+        placeholder={Array.isArray(value) && value.length > 0 ? '' : 'Type and press Enter'}
+        className="w-full"
+        onChange={(e) => onChange(e.value?.length ? e.value : undefined)}
+      />
+    );
+  }
+  if (Array.isArray(def?.enum) && def.enum.length > 0) {
+    return (
+      <Dropdown
+        value={value ?? null}
+        options={toOptions(def.enum)}
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Select..."
+        appendTo={document.body}
+        className="w-full"
+        onChange={(e) => onChange(e.value)}
+      />
+    );
+  }
+  if (def?.type === 'boolean') {
+    return <InputSwitch checked={!!value} onChange={(e) => onChange(e.value)} />;
+  }
+  if (def?.type === 'integer' || def?.type === 'number') {
+    return (
+      <InputNumber
+        value={value ?? null}
+        placeholder={def.default != null ? String(def.default) : ''}
+        useGrouping={false}
+        maxFractionDigits={def.type === 'number' ? 3 : 0}
+        min={def.minimum}
+        max={def.maximum}
+        className="w-full"
+        onValueChange={(e) => onChange(e.value ?? undefined)}
+      />
+    );
+  }
+  return (
+    <InputText
+      className="w-full"
+      value={value ?? ''}
+      placeholder={def?.default ?? ''}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+
 /** A list of objects whose shape the schema knows: one row per entry, one
  *  column per property. A property carrying a connection marker gets the
  *  project's connections of that contract rather than a free-text field, which
@@ -307,11 +391,10 @@ function ObjectListField({
                     onChange={(e) => patch(index, column, e.value)}
                   />
                 ) : (
-                  <InputText
-                    className="w-full"
-                    value={row[column] ?? ''}
-                    placeholder={props[column]?.default ?? ''}
-                    onChange={(e) => patch(index, column, e.target.value)}
+                  <ObjectListCell
+                    def={props[column]}
+                    value={row[column]}
+                    onChange={(next) => patch(index, column, next)}
                   />
                 )}
               </div>

@@ -167,7 +167,7 @@ The published chart is the normal path:
 
 <!-- x-release-please-start-version -->
 ```bash
-helm install okdp-control-plane-ui oci://quay.io/okdp/charts/okdp-control-plane-ui --version 0.8.0
+helm install okdp-control-plane-ui oci://quay.io/okdp/charts/okdp-control-plane-ui --version 0.9.1
 ```
 <!-- x-release-please-end -->
 
@@ -178,7 +178,7 @@ contributor does while changing the chart itself.
 <!-- x-release-please-start-version -->
 ```bash
 helm install okdp-control-plane-ui ./chart -n okdp-system \
-  --set image.tag=0.8.0 \
+  --set image.tag=0.9.1 \
   --set ingress.host=okdp-ui.example.com \
   --set backend.service=okdp-control-plane-server \
   --set oidc.authority=https://keycloak.example.com/realms/master

@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.9.1](https://github.com/OKDP/okdp-control-plane-ui/compare/v0.9.0...v0.9.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **forms:** type object-list cells from their schema, lists included ([ac32959](https://github.com/OKDP/okdp-control-plane-ui/commit/ac32959d8c180b0421de2384473eb73d47b9b65d))
+
+## [0.9.0](https://github.com/OKDP/okdp-control-plane-ui/compare/v0.8.0...v0.9.0) (2026-09-18)
+
+
+### Features
+
+* **chart:** support env, envFrom and dynamic OIDC client ID overrides ([df4c562](https://github.com/OKDP/okdp-control-plane-ui/commit/df4c562816fb73aef50204b856f8e9eee914b9db))
+
+
+### Bug Fixes
+
+* **sse:** carry the bearer token on live streams ([f6f3036](https://github.com/OKDP/okdp-control-plane-ui/commit/f6f303658a810dc724663b2b6285f08af8f4fa5b))
+* **sse:** carry the bearer token on live streams, stop retrying on a 401 ([13495d7](https://github.com/OKDP/okdp-control-plane-ui/commit/13495d749de36f0519edb9e69899fecd8e8a7143))
+
 ## [0.8.0](https://github.com/OKDP/okdp-control-plane-ui/compare/v0.7.0...v0.8.0) (2026-09-11)
 
 

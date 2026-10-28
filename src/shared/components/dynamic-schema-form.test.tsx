@@ -137,6 +137,86 @@ describe('the key-value widget', () => {
   });
 });
 
+// Every column of an object list used to be a text box, so a list or a number
+// reached the package as a string and failed its schema ("got string, want
+// array"): a list of users, each with its allowed actions and topics.
+describe('the object-list widget', () => {
+  const users = {
+    properties: {
+      saslUsers: {
+        type: 'array',
+        items: {
+          properties: {
+            username: { type: 'string' },
+            actions: { type: 'array', items: { type: 'string', enum: ['read', 'write', 'admin'] } },
+            topics: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+      topics: {
+        type: 'array',
+        items: {
+          properties: {
+            name: { type: 'string' },
+            partitions: { type: 'integer', default: 1 },
+            replicationFactor: { type: 'integer', default: 1 },
+          },
+        },
+      },
+    },
+  };
+
+  it('turns the values typed into a list column into a list', () => {
+    const onParametersChange = vi.fn();
+    render(
+      <DynamicSchemaForm
+        schema={users}
+        initialValues={{ saslUsers: [{ username: 'producer' }] }}
+        onParametersChange={onParametersChange}
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('Type and press Enter');
+    fireEvent.change(input, { target: { value: 'events' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+
+    const last = onParametersChange.mock.calls.at(-1)![0];
+    expect(last.saslUsers[0].topics).toEqual(['events']);
+  });
+
+  it('keeps an enum list column a list, not a text box', () => {
+    const onParametersChange = vi.fn();
+    render(
+      <DynamicSchemaForm
+        schema={users}
+        initialValues={{ saslUsers: [{ username: 'producer', actions: ['write'] }] }}
+        onParametersChange={onParametersChange}
+      />,
+    );
+
+    // The only element holding the value is the multi-select's read-only
+    // combobox, not an editable text box.
+    const holder = screen.getByDisplayValue('write');
+    expect(holder.getAttribute('role')).toBe('combobox');
+    expect(holder.hasAttribute('readonly')).toBe(true);
+    const last = onParametersChange.mock.calls.at(-1)![0];
+    expect(last.saslUsers[0].actions).toEqual(['write']);
+  });
+
+  it('renders integer columns as number inputs', () => {
+    render(
+      <DynamicSchemaForm
+        schema={users}
+        initialValues={{ topics: [{ name: 'events', partitions: 3 }] }}
+        onParametersChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(2);
+    expect(screen.queryByDisplayValue('events')).toBeTruthy();
+  });
+});
+
 // A free-form map whose values keep the type they are typed as, so a boolean
 // reaches the chart as a boolean and a number as a number, without freezing the
 // keys or their types.

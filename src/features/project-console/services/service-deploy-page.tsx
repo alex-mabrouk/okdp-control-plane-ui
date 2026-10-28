@@ -476,8 +476,9 @@ export default function ServiceDeployPage() {
                 </div>
               )}
 
-              {currentStepKey === 'params' &&
-                (schemaLoading ? (
+              {/* Kept mounted when hidden: going back to this step finds what was typed. */}
+              <div hidden={currentStepKey !== 'params'}>
+                {schemaLoading ? (
                   <div className="form-section">
                     <div className="flex items-center gap-3 pt-2 pb-5">
                       <i className="pi pi-spin pi-spinner text-[18px] text-primary"></i>
@@ -540,10 +541,11 @@ export default function ServiceDeployPage() {
                       <p className="muted-text">No configurable parameters for this version.</p>
                     ) : null}
                   </div>
-                ))}
+                )}
+              </div>
 
-              {currentStepKey === 'profiles' && (
-                <div className="form-section">
+              {profileEditor && (
+                <div className="form-section" hidden={currentStepKey !== 'profiles'}>
                   <div className="field-head">
                     <label style={{ margin: 0 }}>Profiles</label>
                     <span className="muted-text small">
