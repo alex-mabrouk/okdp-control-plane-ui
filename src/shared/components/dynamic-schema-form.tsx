@@ -9,6 +9,7 @@ import { Chips } from 'primereact/chips';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Password } from 'primereact/password';
 import { Button } from 'primereact/button';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { connectionApi, type SelectableConnection } from '../../core/api/connection-api';
 import { formatLabel } from '../utils/format-label';
 import { parseScalarValue, scalarValueToText } from '../utils/scalar-value';
@@ -85,10 +86,11 @@ function getGroupIcon(groupName: string): string {
 }
 
 /** Structured parameters (a role mapping, a list of datasources) edited as
- *  JSON. The text being typed is kept locally, otherwise every keystroke would
- *  have to parse: a half-written object is not valid JSON. The parsed value is
+ *  YAML, so JSON too. The text being typed is kept locally, otherwise every
+ *  keystroke would have to parse: a half-written object is not valid YAML, or
+ *  parses as a plain string. The parsed value is
  *  only pushed up when it parses, so a typo never replaces the structure. */
-function JsonField({
+function YamlField({
   field,
   value,
   invalid,
@@ -105,10 +107,10 @@ function JsonField({
     v === '' ||
     (typeof v === 'object' && Object.keys(v).length === 0)
       ? ''
-      : JSON.stringify(v, null, 2);
+      : stringifyYaml(v).trimEnd();
 
   const [text, setText] = useState(() => serialize(value));
-  const [badJson, setBadJson] = useState(false);
+  const [badYaml, setBadYaml] = useState(false);
   // Follow the value while the user is not the one changing it (version switch,
   // schema reload), without fighting their cursor.
   const focused = useRef(false);
@@ -120,15 +122,21 @@ function JsonField({
   const commit = (next: string) => {
     setText(next);
     if (next.trim() === '') {
-      setBadJson(false);
+      setBadYaml(false);
       onChange(field.type === 'array' ? [] : {});
       return;
     }
     try {
-      onChange(JSON.parse(next));
-      setBadJson(false);
+      const parsed: unknown = parseYaml(next);
+      const fits =
+        field.type === 'array'
+          ? Array.isArray(parsed)
+          : parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed);
+      if (!fits) throw new Error('wrong shape');
+      onChange(parsed);
+      setBadYaml(false);
     } catch {
-      setBadJson(true);
+      setBadYaml(true);
     }
   };
 
@@ -139,16 +147,20 @@ function JsonField({
         value={text}
         rows={4}
         spellCheck={false}
-        placeholder={field.type === 'array' ? '[]' : '{}'}
-        className={`w-full mono${invalid || badJson ? ' field-invalid' : ''}`}
+        placeholder="YAML or JSON"
+        className={`w-full mono${invalid || badYaml ? ' field-invalid' : ''}`}
         onFocus={() => (focused.current = true)}
         onBlur={() => {
           focused.current = false;
-          if (!badJson) setText(serialize(value));
+          if (!badYaml) setText(serialize(value));
         }}
         onChange={(e) => commit(e.target.value)}
       />
-      {badJson && <small className="field-hint err">Invalid JSON, the value is not saved.</small>}
+      {badYaml ? (
+        <small className="field-hint err">Invalid YAML, the value is not saved.</small>
+      ) : (
+        <small className="field-hint">Only YAML and JSON are accepted.</small>
+      )}
     </>
   );
 }
@@ -673,7 +685,7 @@ const FieldWidget = memo(function FieldWidget({
           );
         case 'yaml':
           return (
-            <JsonField
+            <YamlField
               field={field}
               value={value}
               invalid={hasError}
