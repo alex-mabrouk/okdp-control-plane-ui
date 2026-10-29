@@ -256,3 +256,49 @@ describe('the key-value-scalar widget', () => {
     expect(last.dagsGitSync).toEqual({ k: expected });
   });
 });
+
+// The yaml widget used to parse JSON only, so the YAML its name promises was
+// refused ("Invalid JSON") and never reached the package.
+describe('the yaml widget', () => {
+  const gitSync = {
+    properties: {
+      dagsGitSync: { type: 'object', 'x-ui-widget': 'yaml', title: 'Git sync' },
+    },
+  };
+
+  it.each([
+    ['enabled: true\nrepo: https://example.com/dags.git\nref: main'],
+    ['{"enabled": true, "repo": "https://example.com/dags.git", "ref": "main"}'],
+  ])('accepts %s', (typed) => {
+    const onParametersChange = vi.fn();
+    render(<DynamicSchemaForm schema={gitSync} onParametersChange={onParametersChange} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: typed } });
+
+    const last = onParametersChange.mock.calls.at(-1)![0];
+    expect(last.dagsGitSync).toEqual({
+      enabled: true,
+      repo: 'https://example.com/dags.git',
+      ref: 'main',
+    });
+    expect(screen.queryByText(/Invalid YAML/)).toBeNull();
+  });
+
+  it('says which formats it accepts', () => {
+    render(<DynamicSchemaForm schema={gitSync} onParametersChange={vi.fn()} />);
+
+    expect(screen.getByPlaceholderText('YAML or JSON')).toBeTruthy();
+    expect(screen.getByText('Only YAML and JSON are accepted.')).toBeTruthy();
+  });
+
+  it('keeps the value when the text is not an object', () => {
+    const onParametersChange = vi.fn();
+    render(<DynamicSchemaForm schema={gitSync} onParametersChange={onParametersChange} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'enabled' } });
+
+    expect(screen.getByText(/Invalid YAML/)).toBeTruthy();
+    const last = onParametersChange.mock.calls.at(-1)?.[0];
+    expect(last?.dagsGitSync).not.toBe('enabled');
+  });
+});
