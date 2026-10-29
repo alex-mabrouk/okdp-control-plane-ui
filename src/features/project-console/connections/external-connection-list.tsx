@@ -3,37 +3,24 @@ import { useParams } from 'react-router-dom';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Button } from 'primereact/button';
-import { Dialog } from 'primereact/dialog';
 import { Toast } from 'primereact/toast';
-import { InputText } from 'primereact/inputtext';
-import { InputTextarea } from 'primereact/inputtextarea';
-import { Dropdown } from 'primereact/dropdown';
 import { Message } from 'primereact/message';
 import {
   connectionApi,
   type Connection,
   type ConnectionCatalog,
   type ConnectionConsumer,
-  type ConnectionRequest,
-  type ConnectionTestResult,
-  type ContractDescriptor,
-  type ConnectionValues,
 } from '../../../core/api/connection-api';
 import { apiErrorMessage, formatMediumDateTime } from '../services/service-utils';
 import { connectionStatusTone } from './connection-status';
-import { missingRequiredFields, omitBlankSecrets, toDynamicSchema } from './connection-schema';
 import { StatusTag } from '../../../shared/components/status-tag';
-import { DynamicSchemaForm } from '../../../shared/components/dynamic-schema-form';
 import { usePolledResources } from '../../../shared/hooks/use-polled-resources';
 import SearchFilter from '../../../shared/components/search-filter';
 import { PageHeader } from '../../../shared/components/page-header';
 import { ConnectionDetailDialog } from './connection-detail-dialog';
-import { CredentialsBlock, type CredentialsMode } from './credentials-block';
-import { ConnectionTestReport } from './connection-test-result';
+import { ConnectionFormDialog } from './connection-form-dialog';
 import { useToastMessages } from '../../../shared/hooks/use-toast-messages';
 import { useRowActionsMenu } from '../../../shared/hooks/use-row-actions-menu';
-import { k8sNameError } from '../../../shared/utils/k8s-names';
-import { DialogFooter } from '../../../shared/components/dialog-footer';
 import DeleteConfirmDialog from '../../../shared/components/delete-confirm-dialog';
 
 // The comparator decides whether the polled list replaces the one in hand, and
@@ -71,30 +58,9 @@ export function ExternalConnectionList() {
   // it is still running.
   const [consumers, setConsumers] = useState<ConnectionConsumer[] | 'loading' | null>(null);
 
-  // Dialog state
-  const [dialogVisible, setDialogVisible] = useState(false);
   const [detail, setDetail] = useState<Connection | null>(null);
-  const [editMode, setEditMode] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [typeName, setTypeName] = useState('');
-  const [values, setValues] = useState<ConnectionValues>({});
-  // Credentials live in their own state because they have their own
-  // destination: a Secret, not spec.values. The schema form does not know
-  // them (toDynamicSchema drops the secret fields) and re-emits the whole
-  // set of values it owns, which would wipe them on the next keystroke.
-  const [credentials, setCredentials] = useState<ConnectionValues>({});
-  // Values the form starts from. Kept apart from `values`, which the form owns
-  // and streams back on every keystroke: feeding those back in as initial
-  // values would restart the form's own initialisation effect on each change.
-  const [initialValues, setInitialValues] = useState<ConnectionValues>({});
-  const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
-  // Credentials either get typed in, and the console writes a Secret, or they
-  // already live in one, typically projected from a vault by External Secrets.
-  const [credentialsMode, setCredentialsMode] = useState<CredentialsMode>('enter');
-  const [existingSecret, setExistingSecret] = useState('');
+  // The connection form, open on a new connection or on the one to edit.
+  const [form, setForm] = useState<{ connection?: Connection } | null>(null);
 
   const fetchList = useCallback(() => api.list(), [api]);
 
@@ -120,132 +86,7 @@ export function ExternalConnectionList() {
     () => (catalog?.types ?? []).filter((type) => type.external),
     [catalog],
   );
-  const selectedType: ContractDescriptor | undefined = useMemo(
-    () => creatableTypes.find((type) => type.name === typeName),
-    [creatableTypes, typeName],
-  );
-
-  // Memoised: DynamicSchemaForm re-initialises whenever the schema's identity
-  // changes, so handing it a fresh object each render would loop.
-  const schema = useMemo(() => (selectedType ? toDynamicSchema(selectedType) : null), [selectedType]);
-
   const crdAvailable = catalog?.crdAvailable ?? true;
-  const nameError = k8sNameError(name);
-  const missingFields = selectedType ? missingRequiredFields(selectedType, values) : [];
-  const credentialFields = selectedType?.fields.filter((field) => field.secret) ?? [];
-  // On an edit the stored credentials are kept when nothing is retyped, so a
-  // blank field is not a missing one.
-  const missingCredentials =
-    credentialsMode === 'existing'
-      ? existingSecret
-        ? []
-        : ['Secret name']
-      : editMode
-        ? []
-        : credentialFields.filter((f) => f.required && !credentials[f.name]).map((f) => f.label);
-  // Testing sends only what the form holds, the endpoint cannot read a Secret,
-  // so credentials must be present even on an edit and even when the connection
-  // points at an existing Secret.
-  const missingToTest = [
-    ...missingFields,
-    ...credentialFields.filter((f) => f.required && !credentials[f.name]).map((f) => f.label),
-  ];
-  const formValid =
-    Boolean(selectedType) &&
-    Boolean(name) &&
-    !nameError &&
-    missingFields.length === 0 &&
-    missingCredentials.length === 0;
-
-  const openCreateDialog = () => {
-    setEditMode(false);
-    setName('');
-    setDescription('');
-    setTypeName(creatableTypes[0]?.name ?? '');
-    setValues({});
-    setInitialValues({});
-    setCredentials({});
-    setTestResult(null);
-    setCredentialsMode('enter');
-    setExistingSecret('');
-    setDialogVisible(true);
-  };
-
-  const openEditDialog = (connection: Connection) => {
-    setEditMode(true);
-    setName(connection.name);
-    setDescription(connection.description ?? '');
-    setTypeName(connection.type);
-    // Credentials are absent from the response by design, so they start blank
-    // and are only written when the user types a new one.
-    setValues({ ...connection.values });
-    setInitialValues({ ...connection.values });
-    setCredentials({});
-    setTestResult(null);
-    // The server records which of the two it is, so the dialog reopens in the
-    // right mode instead of guessing from the Secret's name.
-    const secret = connection.credentialsSecret;
-    const pointsElsewhere = Boolean(secret) && !secret!.owned;
-    setCredentialsMode(pointsElsewhere ? 'existing' : 'enter');
-    setExistingSecret(pointsElsewhere ? secret!.name : '');
-    setDialogVisible(true);
-  };
-
-  // Everything the form holds, credentials included. The test endpoint cannot
-  // read a Secret, so it needs them whichever mode is selected.
-  const submittedValues = () =>
-    selectedType
-      ? omitBlankSecrets(selectedType, { ...values, ...credentials })
-      : { ...values, ...credentials };
-
-  const buildRequest = (): ConnectionRequest => ({
-    name,
-    type: typeName,
-    description: description || undefined,
-    // Naming an existing Secret means the credentials stay where they are. Any
-    // value typed before switching mode is left out rather than stored under a
-    // name the user did not choose.
-    values:
-      credentialsMode === 'existing'
-        ? selectedType
-          ? omitBlankSecrets(selectedType, values)
-          : values
-        : submittedValues(),
-    existingSecret: credentialsMode === 'existing' ? existingSecret : undefined,
-  });
-
-  const testConnection = () => {
-    setTesting(true);
-    setTestResult(null);
-    api
-      .test({ type: typeName, values: submittedValues() })
-      .then((result) => {
-        setTesting(false);
-        setTestResult(result);
-      })
-      .catch((err) => {
-        setTesting(false);
-        showError(apiErrorMessage(err, 'Could not run the connection test'));
-      });
-  };
-
-  const saveConnection = () => {
-    setSaving(true);
-    const request = buildRequest();
-    const save = editMode ? api.update(name, request) : api.create(request);
-
-    save
-      .then(() => {
-        setSaving(false);
-        setDialogVisible(false);
-        showSuccess(`Connection "${name}" ${editMode ? 'updated' : 'created'} successfully`);
-        reload();
-      })
-      .catch((err) => {
-        setSaving(false);
-        showError(apiErrorMessage(err, `Failed to ${editMode ? 'update' : 'create'} connection`));
-      });
-  };
 
   const deleteConnection = (connection: Connection) => {
     api
@@ -269,38 +110,12 @@ export function ExternalConnectionList() {
 
   const { menuElement, openMenu } = useRowActionsMenu<Connection>([
     { label: 'Details', icon: 'pi pi-info-circle', command: setDetail },
-    { label: 'Edit', icon: 'pi pi-pencil', command: openEditDialog },
+    { label: 'Edit', icon: 'pi pi-pencil', command: (connection) => setForm({ connection }) },
     { label: 'Delete', icon: 'pi pi-trash', command: askDelete },
   ]);
 
   const onCopied = (what: string) =>
     what ? showSuccess(`Copied ${what}`) : showError('Could not copy to the clipboard');
-
-  const dialogFooter = (
-    <DialogFooter
-      onCancel={() => setDialogVisible(false)}
-      onConfirm={saveConnection}
-      confirmLabel={editMode ? 'Save' : 'Create'}
-      confirmDisabled={testing || !formValid}
-      cancelDisabled={testing}
-      busy={saving}
-      leading={
-        <Button
-          severity="secondary"
-          outlined
-          icon={testing ? 'pi pi-spin pi-spinner' : 'pi pi-check-circle'}
-          label="Test connection"
-          onClick={testConnection}
-          disabled={testing || saving || !selectedType || missingToTest.length > 0}
-          tooltip={
-            missingToTest.length > 0
-              ? `Fill in ${missingToTest.join(', ')} to test the connection`
-              : undefined
-          }
-        />
-      }
-    />
-  );
 
   return (
     <div>
@@ -309,7 +124,7 @@ export function ExternalConnectionList() {
       <PageHeader
         title="External connections"
         actions={
-          <button className="create-btn" onClick={openCreateDialog} disabled={!crdAvailable}>
+          <button className="create-btn" onClick={() => setForm({})} disabled={!crdAvailable}>
             <i className="pi pi-plus"></i>
             <span>Add connection</span>
           </button>
@@ -423,102 +238,21 @@ export function ExternalConnectionList() {
         {menuElement}
       </div>
 
-      <Dialog
-        header={editMode ? 'Edit connection' : 'Add connection'}
-        visible={dialogVisible}
-        modal
-        draggable={false}
-        resizable={false}
-        style={{ width: '600px' }}
-        className="db-dialog"
-        closable
-        onHide={() => setDialogVisible(false)}
-        footer={dialogFooter}
-      >
-        <div className="dialog-content">
-          <div className="field">
-            <label htmlFor="connectionName">Connection name</label>
-            <InputText
-              id="connectionName"
-              value={name}
-              disabled={editMode}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="corporate-warehouse"
-            />
-            {nameError && <small className="p-error">{nameError}</small>}
-          </div>
-
-          <div className="field">
-            <label htmlFor="contract">Type</label>
-            <Dropdown
-              inputId="contract"
-              value={typeName}
-              disabled={editMode}
-              options={creatableTypes.map((type) => ({
-                label: type.displayName,
-                value: type.name,
-              }))}
-              onChange={(e) => {
-                setTypeName(e.value);
-                // The fields of the previous type do not apply to the new one.
-                setValues({});
-                setInitialValues({});
-                setCredentials({});
-                setTestResult(null);
-              }}
-              placeholder="Select a type"
-            />
-            {selectedType?.description && (
-              <small className="text-fg-secondary">{selectedType.description}</small>
-            )}
-          </div>
-
-          <div className="field">
-            <label htmlFor="connectionDescription">Description</label>
-            <InputTextarea
-              id="connectionDescription"
-              value={description}
-              rows={2}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What this connection is for"
-            />
-          </div>
-
-          {selectedType && schema && (
-            <DynamicSchemaForm
-              // Remounting on a type change resets the form to the new
-              // schema's defaults instead of carrying stale values over.
-              key={`${selectedType.name}-${editMode ? name : 'new'}`}
-              schema={schema}
-              initialValues={initialValues}
-              onParametersChange={(params) => setValues(params as ConnectionValues)}
-            />
-          )}
-
-          {selectedType && (
-            <CredentialsBlock
-              contract={selectedType}
-              mode={credentialsMode}
-              onModeChange={setCredentialsMode}
-              values={credentials}
-              onValueChange={(field, value) => setCredentials((c) => ({ ...c, [field]: value }))}
-              existingSecret={existingSecret}
-              onExistingSecretChange={setExistingSecret}
-              editMode={editMode}
-            />
-          )}
-
-          {/* The Save button is disabled until the form is complete. Naming
-              what is missing beats leaving the user to hunt for it. */}
-          {selectedType && [...missingFields, ...missingCredentials].length > 0 && (
-            <small className="field-hint">
-              Still to fill in: {[...missingFields, ...missingCredentials].join(', ')}.
-            </small>
-          )}
-
-          {testResult && <ConnectionTestReport result={testResult} />}
-        </div>
-      </Dialog>
+      {form && (
+        <ConnectionFormDialog
+          projectId={projectId}
+          types={creatableTypes}
+          connection={form.connection}
+          onHide={() => setForm(null)}
+          onSaved={(name) => {
+            setForm(null);
+            showSuccess(
+              `Connection "${name}" ${form.connection ? 'updated' : 'created'} successfully`,
+            );
+            reload();
+          }}
+        />
+      )}
 
       <DeleteConfirmDialog
         resourceName={deleteTarget?.name ?? null}
