@@ -1,23 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dropdown } from 'primereact/dropdown';
-import { Dialog } from 'primereact/dialog';
 import { Button } from 'primereact/button';
-import { InputText } from 'primereact/inputtext';
-import { Message } from 'primereact/message';
 import {
   connectionApi,
   type ContractDescriptor,
-  type ConnectionValues,
-  type ConnectionTestResult,
   type SelectableConnection,
 } from '../../../core/api/connection-api';
 import type { PackageInput } from '../../../core/api/service-api';
-import { DynamicSchemaForm } from '../../../shared/components/dynamic-schema-form';
-import { DialogFooter } from '../../../shared/components/dialog-footer';
-import { k8sNameError } from '../../../shared/utils/k8s-names';
-import { missingRequiredFields, omitBlankSecrets, toDynamicSchema } from './connection-schema';
-import { CredentialsBlock, type CredentialsMode } from './credentials-block';
-import { ConnectionTestReport } from './connection-test-result';
+import { ConnectionFormDialog } from './connection-form-dialog';
 
 /** Internal sentinel for "no connection": PrimeReact's Dropdown mishandles an
  *  option whose value is the empty string, so the option carries this value and
@@ -181,12 +171,13 @@ export function ConnectionInputPicker({
       />
 
       {createOpen && creatableType && (
-        <InlineConnectionCreate
+        <ConnectionFormDialog
           projectId={projectId}
-          contract={creatableType}
-          visible={createOpen}
+          types={[creatableType]}
+          typeFixed
+          confirmLabel="Create and select"
           onHide={() => setCreateOpen(false)}
-          onCreated={(name) => {
+          onSaved={(name) => {
             setCreateOpen(false);
             reload();
             onChange(name);
@@ -194,157 +185,6 @@ export function ConnectionInputPicker({
         />
       )}
     </div>
-  );
-}
-
-/** The connection-creation dialog, reduced to what the deploy flow needs: the
- *  type is fixed by the input's contract, and the Test button probes the live
- *  endpoint before anything is saved, through the same server call as the
- *  Connections
- *  page, so the behaviour cannot drift. */
-function InlineConnectionCreate({
-  projectId,
-  contract,
-  visible,
-  onHide,
-  onCreated,
-}: {
-  projectId: string;
-  contract: ContractDescriptor;
-  visible: boolean;
-  onHide: () => void;
-  onCreated: (name: string) => void;
-}) {
-  const [name, setName] = useState('');
-  const [values, setValues] = useState<ConnectionValues>({});
-  // Credentials are held apart from the schema values: the form owns the
-  // latter and re-emits them whole, without the secret fields it never sees.
-  const [credentials, setCredentials] = useState<ConnectionValues>({});
-  const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
-  const [error, setError] = useState('');
-  const [credentialsMode, setCredentialsMode] = useState<CredentialsMode>('enter');
-  const [existingSecret, setExistingSecret] = useState('');
-
-  const schema = useMemo(() => toDynamicSchema(contract), [contract]);
-  const nameError = name ? k8sNameError(name) : null;
-  const credentialFields = contract.fields.filter((field) => field.secret);
-  const missingCredentials =
-    credentialsMode === 'existing'
-      ? existingSecret
-        ? []
-        : ['Secret name']
-      : credentialFields.filter((f) => f.required && !credentials[f.name]).map((f) => f.label);
-  const missingFields = [...missingRequiredFields(contract, values), ...missingCredentials];
-  const formValid = !!name && !nameError && missingFields.length === 0;
-
-  const api = connectionApi.project(projectId);
-
-  const test = () => {
-    setTesting(true);
-    setTestResult(null);
-    api
-      .test({ type: contract.name, values: omitBlankSecrets(contract, { ...values, ...credentials }) })
-      .then(setTestResult)
-      .catch(() => setTestResult({ success: false, message: 'Test request failed', durationMs: 0 }))
-      .finally(() => setTesting(false));
-  };
-
-  const create = () => {
-    setSaving(true);
-    setError('');
-    api
-      .create({
-        name,
-        type: contract.name,
-        // Naming an existing Secret means the credentials stay where they are.
-        // Any value typed before switching mode is left out rather than stored
-        // under a name the user did not choose.
-        values:
-          credentialsMode === 'existing'
-            ? omitBlankSecrets(contract, values)
-            : omitBlankSecrets(contract, { ...values, ...credentials }),
-        existingSecret: credentialsMode === 'existing' ? existingSecret : undefined,
-      })
-      .then(() => {
-        setSaving(false);
-        setName('');
-        setCredentials({});
-        setTestResult(null);
-        onCreated(name);
-      })
-      .catch((err: unknown) => {
-        setSaving(false);
-        const detail =
-          err && typeof err === 'object' && 'message' in err ? String(err.message) : '';
-        setError(detail || 'Failed to create the connection');
-      });
-  };
-
-  return (
-    <Dialog
-      header={`New ${contract.displayName} connection`}
-      visible={visible}
-      modal
-      draggable={false}
-      resizable={false}
-      style={{ width: '560px' }}
-      className="db-dialog"
-      onHide={onHide}
-      footer={
-        <DialogFooter
-          onCancel={onHide}
-          onConfirm={create}
-          confirmLabel="Create and select"
-          confirmDisabled={testing || !formValid}
-          cancelDisabled={testing || saving}
-          busy={saving}
-          leading={
-            <Button
-              type="button"
-              label="Test"
-              icon="pi pi-bolt"
-              outlined
-              loading={testing}
-              disabled={!formValid || saving}
-              onClick={test}
-            />
-          }
-        />
-      }
-    >
-      <div className="dialog-content">
-        <div className="form-field">
-          <label htmlFor="inline-conn-name">Connection name</label>
-          <InputText
-            id="inline-conn-name"
-            className="mono"
-            value={name}
-            placeholder="e.g. corporate-warehouse"
-            onChange={(e) => setName(e.target.value)}
-          />
-          {nameError && <small className="field-hint err">{nameError}</small>}
-        </div>
-        <DynamicSchemaForm schema={schema} onParametersChange={setValues} />
-        <CredentialsBlock
-          contract={contract}
-          mode={credentialsMode}
-          onModeChange={setCredentialsMode}
-          values={credentials}
-          onValueChange={(field, value) => setCredentials((c) => ({ ...c, [field]: value }))}
-          existingSecret={existingSecret}
-          onExistingSecretChange={setExistingSecret}
-        />
-        {/* Same reason as the Connections page: a disabled button that says
-            nothing leaves the user hunting for the empty field. */}
-        {missingFields.length > 0 && (
-          <small className="field-hint">Still to fill in: {missingFields.join(', ')}.</small>
-        )}
-        {testResult && <ConnectionTestReport result={testResult} />}
-        {error && <Message severity="error" text={error} />}
-      </div>
-    </Dialog>
   );
 }
 

@@ -160,6 +160,18 @@ describe('ConnectionInputPicker', () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledWith('fresh-pg'));
   });
 
+  // The form is the one of the Connections page, with the type the input asks
+  // for: offering another would create a connection the input cannot take.
+  it('opens the Connections page form on the type of the input, without a choice', async () => {
+    renderPicker();
+
+    fireEvent.click(await screen.findByRole('button', { name: /New connection/ }));
+
+    expect(await screen.findByText('New PostgreSQL connection')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Type')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Description')).toBeInTheDocument();
+  });
+
 
   // KuboCD forbids a literal default on a connectionRef: it is always a
   // template rendered against the Context, which is how an Environment says
